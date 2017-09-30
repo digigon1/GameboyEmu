@@ -342,32 +342,60 @@ public class CPU {
         }
     }
 
-    private void cp8(Register8 c) {
-        //TODO
+    private void cp8(char address) {
+        cp8(memory[address]);
+    }
+
+    private void cp8(Register8 b) {
+        cp8(b.value);
+    }
+
+    private void or8(char address) {
+        or8(memory[address]);
     }
 
     private void or8(Register8 d) {
-        //TODO
+        or8(d.value);
     }
 
-    private void xor8(Register8 d) {
-        //TODO
+    private void xor8(char address) {
+        xor8(memory[address]);
     }
 
-    private void and8(Register8 c) {
-        //TODO
+    private void xor8(Register8 b) {
+        xor8(b.value);
     }
 
-    private void sbc8(Register8 h) {
-        //TODO
+    private void and8(char address) {
+        and8(memory[address]);
+    }
+
+    private void and8(Register8 b) {
+        and8(b.value);
+    }
+
+    private void sbc8(char address) {
+        sbc8(memory[address]);
+    }
+
+    private void sbc8(Register8 b) {
+        sbc8(b.value);
+    }
+
+    private void sub8(char address) {
+        sub8(memory[address]);
     }
 
     private void sub8(Register8 b) {
-        //TODO
+        sub8(b.value);
     }
 
     private void adc8(Register8 b) {
-        //TODO
+        adc8(b.value);
+    }
+
+    private void adc8(char address) {
+        adc8(memory[address]);
     }
 
     private void add8(char address) {
@@ -378,7 +406,36 @@ public class CPU {
         add8(b.value);
     }
 
+    private void cp8(byte c) {
+        //TODO
+    }
+
+    private void or8(byte d) {
+        //TODO
+    }
+
+    private void xor8(byte d) {
+        //TODO
+    }
+
+    private void and8(byte c) {
+        //TODO
+    }
+
+    private void sbc8(byte h) {
+        //TODO
+    }
+
+    private void sub8(byte b) {
+        //TODO
+    }
+
+    private void adc8(byte b) {
+        //TODO
+    }
+
     private void add8(byte b) {
+        //TODO check
         char r = (char) (a.value + b);
         f.set(r > 255, 4);
 
