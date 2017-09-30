@@ -278,7 +278,96 @@ public class CPU {
             case 0x85: add8(l); break;
             case 0x86: add8(getAddress(h.value, l.value)); break;
             case 0x87: add8(a); break;
+            case 0x88: adc8(b); break;
+            case 0x89: adc8(c); break;
+            case 0x8A: adc8(d); break;
+            case 0x8B: adc8(e); break;
+            case 0x8C: adc8(h); break;
+            case 0x8D: adc8(l); break;
+            case 0x8E: adc8(getAddress(h.value, l.value)); break;
+            case 0x8F: adc8(a); break;
+
+            case 0x90: sub8(b); break;
+            case 0x91: sub8(c); break;
+            case 0x92: sub8(d); break;
+            case 0x93: sub8(e); break;
+            case 0x94: sub8(h); break;
+            case 0x95: sub8(l); break;
+            case 0x96: sub8(getAddress(h.value, l.value)); break;
+            case 0x97: sub8(a); break;
+            case 0x98: sbc8(b); break;
+            case 0x99: sbc8(c); break;
+            case 0x9A: sbc8(d); break;
+            case 0x9B: sbc8(e); break;
+            case 0x9C: sbc8(h); break;
+            case 0x9D: sbc8(l); break;
+            case 0x9E: sbc8(getAddress(h.value, l.value)); break;
+            case 0x9F: sbc8(a); break;
+
+
+            case 0xA0: and8(b); break;
+            case 0xA1: and8(c); break;
+            case 0xA2: and8(d); break;
+            case 0xA3: and8(e); break;
+            case 0xA4: and8(h); break;
+            case 0xA5: and8(l); break;
+            case 0xA6: and8(getAddress(h.value, l.value)); break;
+            case 0xA7: and8(a); break;
+            case 0xA8: xor8(b); break;
+            case 0xA9: xor8(c); break;
+            case 0xAA: xor8(d); break;
+            case 0xAB: xor8(e); break;
+            case 0xAC: xor8(h); break;
+            case 0xAD: xor8(l); break;
+            case 0xAE: xor8(getAddress(h.value, l.value)); break;
+            case 0xAF: xor8(a); break;
+
+
+            case 0xB0: or8(b); break;
+            case 0xB1: or8(c); break;
+            case 0xB2: or8(d); break;
+            case 0xB3: or8(e); break;
+            case 0xB4: or8(h); break;
+            case 0xB5: or8(l); break;
+            case 0xB6: or8(getAddress(h.value, l.value)); break;
+            case 0xB7: or8(a); break;
+            case 0xB8: cp8(b); break;
+            case 0xB9: cp8(c); break;
+            case 0xBA: cp8(d); break;
+            case 0xBB: cp8(e); break;
+            case 0xBC: cp8(h); break;
+            case 0xBD: cp8(l); break;
+            case 0xBE: cp8(getAddress(h.value, l.value)); break;
+            case 0xBF: cp8(a); break;
         }
+    }
+
+    private void cp8(Register8 c) {
+        //TODO
+    }
+
+    private void or8(Register8 d) {
+        //TODO
+    }
+
+    private void xor8(Register8 d) {
+        //TODO
+    }
+
+    private void and8(Register8 c) {
+        //TODO
+    }
+
+    private void sbc8(Register8 h) {
+        //TODO
+    }
+
+    private void sub8(Register8 b) {
+        //TODO
+    }
+
+    private void adc8(Register8 b) {
+        //TODO
     }
 
     private void add8(char address) {
