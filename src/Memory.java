@@ -1,57 +1,88 @@
 import java.io.IOException;
 
-/**
- * Created by Goncalo on 30/09/2017.
- */
 public class Memory {
-    byte[] work, video;
+    char[] work, video;
     Cartridge cart;
+    private char[] fast;
+    private char[] rom; //initializing rom
 
     public Memory(Cartridge cart) {
-        work = new byte[8096];
-        video = new byte[8096];
+        work = new char[8096];
+        video = new char[8096];
+        fast = new char[128];
+        rom = new char[]{
+                0x31,0xfe,0xff,0xaf,0x21,0xff,0x9f,0x32,
+                0xcb,0x7c,0x20,0xfb,0x21,0x26,0xff,0x0e,
+                0x11,0x3e,0x80,0x32,0xe2,0x0c,0x3e,0xf3,
+                0xe2,0x32,0x3e,0x77,0x77,0x3e,0xfc,0xe0,
+                0x47,0x11,0x04,0x01,0x21,0x10,0x80,0x1a,
+                0xcd,0x95,0x00,0xcd,0x96,0x00,0x13,0x7b,
+                0xfe,0x34,0x20,0xf3,0x11,0xd8,0x00,0x06,
+                0x08,0x1a,0x13,0x22,0x23,0x05,0x20,0xf9,
+                0x3e,0x19,0xea,0x10,0x99,0x21,0x2f,0x99,
+                0x0e,0x0c,0x3d,0x28,0x08,0x32,0x0d,0x20,
+                0xf9,0x2e,0x0f,0x18,0xf3,0x67,0x3e,0x64,
+                0x57,0xe0,0x42,0x3e,0x91,0xe0,0x40,0x04,
+                0x1e,0x02,0x0e,0x0c,0xf0,0x44,0xfe,0x90,
+                0x20,0xfa,0x0d,0x20,0xf7,0x1d,0x20,0xf2,
+                0x0e,0x13,0x24,0x7c,0x1e,0x83,0xfe,0x62,
+                0x28,0x06,0x1e,0xc1,0xfe,0x64,0x20,0x06,
+                0x7b,0xe2,0x0c,0x3e,0x87,0xe2,0xf0,0x42,
+                0x90,0xe0,0x42,0x15,0x20,0xd2,0x05,0x20,
+                0x4f,0x16,0x20,0x18,0xcb,0x4f,0x06,0x04,
+                0xc5,0xcb,0x11,0x17,0xc1,0xcb,0x11,0x17,
+                0x05,0x20,0xf5,0x22,0x23,0x22,0x23,0xc9,
+                0xce,0xed,0x66,0x66,0xcc,0x0d,0x00,0x0b,
+                0x03,0x73,0x00,0x83,0x00,0x0c,0x00,0x0d,
+                0x00,0x08,0x11,0x1f,0x88,0x89,0x00,0x0e,
+                0xdc,0xcc,0x6e,0xe6,0xdd,0xdd,0xd9,0x99,
+                0xbb,0xbb,0x67,0x63,0x6e,0x0e,0xec,0xcc,
+                0xdd,0xdc,0x99,0x9f,0xbb,0xb9,0x33,0x3e,
+                0x3c,0x42,0xb9,0xa5,0xb9,0xa5,0x42,0x3c,
+                0x21,0x04,0x01,0x11,0xa8,0x00,0x1a,0x13,
+                0xbe,0x20,0xfe,0x23,0x7d,0xfe,0x34,0x20,
+                0xf5,0x06,0x19,0x78,0x86,0x23,0x05,0x20,
+                0xfb,0x86,0x20,0xfe,0x3e,0x01,0xe0,0x50
+        };
         this.cart = cart;
     }
 
-    public byte read(char address) throws InvalidMemoryReadLocationException, IOException {
-        if (address <= 0x00FF) {
-            return -1; //TODO
-        } else if (address <= 0x014F){
-            return -1; //TODO
-        } else if(address <= 0x3FFF) {
+    public char read(char address) throws InvalidMemoryReadLocationException, IOException {
+        if (address < 0x0100) {
+            return rom[address];
+        } else if (address < 0x0150){
             return cart.read(address);
-        } else if(address <= 0x7FFF) {
+        } else if(address < 0x4000) {
             return cart.read(address);
-        } else if(address <= 0x97FF) {
-            return -1; //TODO
-        } else if (address <= 0x9BFF) {
-            return -1; //TODO
-        } else if (address <= 0x9FFF) {
-            return -1; //TODO
-        } else if (address <= 0xBFFF) {
+        } else if(address < 0x8000) {
+            return cart.read(address);
+        } else if (address < 0xA000) {
+            return video[address - 0x8000]; //check
+        } else if (address < 0xC000) {
             return cart.readRam(address - 0xA000); //TODO
-        } else if (address <= 0xDFFF) {
+        } else if (address < 0xE000) {
             return work[address - 0xC000]; //TODO check
-        } else if (address <= 0xFDFF) {
-            return -1; //TODO
-        } else if (address <= 0xFE9F) {
-            return -1; //TODO
-        } else if (address <= 0xFEFF) {
+        } else if (address < 0xFE00) {
+            return work[address - 0xE00]; //TODO check
+        } else if (address < 0xFEA0) {
+            //Sprite attrib memory (OAM)
+            return 1; //TODO
+        } else if (address < 0xFF00) {
 
-            return -1; //TODO probably fail is needed
+            return 1; //TODO probably fail is needed
 
-        } else if (address <= 0xFF7F) {
-            return -1; //TODO
-        } else if (address <= 0xFFFE) {
-            return -1; //TODO
+        } else if (address < 0xFF80) {
+            return 1; //TODO
+        } else if (address < 0xFFFF) {
+            return fast[address - 0xFF80]; //TODO
         } else if (address == 0xFFFF){
-            return -1; //TODO
+            return 1; //TODO
         }
 
         throw new InvalidMemoryReadLocationException();
     }
 
-    public void write(char address, byte value) throws InvalidMemoryWriteLocationException {
+    public void write(char address, char value) throws InvalidMemoryWriteLocationException {
         if (address <= 0x00FF) {
             //TODO
         } else if (address <= 0x014F){
@@ -59,21 +90,19 @@ public class Memory {
         } else if(address <= 0x3FFF) {
             //TODO
             //return cart.read(address);
+            if (address == 0x2000)
+                cart.changeBank(value);
         } else if(address <= 0x7FFF) {
             //TODO
             //return cart.read(address);
-        } else if(address <= 0x97FF) {
-            //TODO
-        } else if (address <= 0x9BFF) {
-            //TODO
         } else if (address <= 0x9FFF) {
-            //TODO
+            video[address - 0x8000] = value;
         } else if (address <= 0xBFFF) {
-            cart.writeRam(address - 0xA000, value); //TODO check
+            cart.writeRam(address - 0xA000, value); // check
         } else if (address <= 0xDFFF) {
-            work[address - 0xC000] = value; //TODO check
+            work[address - 0xC000] = value; // check
         } else if (address <= 0xFDFF) {
-            //TODO
+            work[address - 0xE000] = value; //check
         } else if (address <= 0xFE9F) {
             //TODO
         } else if (address <= 0xFEFF) {
@@ -83,19 +112,19 @@ public class Memory {
         } else if (address <= 0xFF7F) {
             //TODO
         } else if (address <= 0xFFFE) {
-            //TODO
+            fast[address - 0xFF80] = value; //check
         } else if (address == 0xFFFF){
             //TODO
+        } else {
+            throw new InvalidMemoryWriteLocationException(String.format("%04X", address));
         }
-
-        throw new InvalidMemoryWriteLocationException();
     }
 
     public void decrement(char address) throws InvalidMemoryReadLocationException, IOException, InvalidMemoryWriteLocationException {
-        write(address, (byte) (read(address) - 1));
+        write(address, (char) (read(address) - 1));
     }
 
     public void increment(char address) throws InvalidMemoryReadLocationException, IOException, InvalidMemoryWriteLocationException {
-        write(address, (byte) (read(address) + 1));
+        write(address, (char) (read(address) + 1));
     }
 }

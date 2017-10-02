@@ -26,14 +26,15 @@ public class CPU {
     }
 
     class Register8 {
-        byte value;
+        char value;
 
-        public Register8(byte value) {
+        public Register8(char value) {
             this.value = value;
         }
 
         public void increment() {
             value++;
+            value %= 256;
         }
 
         public void decrement() {
@@ -41,10 +42,12 @@ public class CPU {
         }
 
         public boolean rotateLeft(boolean rotateFromEdge) {
-            boolean r = value < 0;
+            boolean r = value > 127;
             value <<= 1;
             if (rotateFromEdge && r || f.getCarry())
                 value |= 1;
+
+            value %= 256;
 
             return r;
         }
@@ -57,11 +60,19 @@ public class CPU {
 
             return r;
         }
+
+        public void set(int i) {
+            value |= 1 << i;
+        }
+
+        public void reset(int i) {
+            value &= 0xFF - (1 << i);
+        }
     }
 
     class Flags extends Register8 {
         public Flags() {
-            super((byte) 0);
+            super((char) 0);
         }
 
         public boolean getZero() {
@@ -99,14 +110,14 @@ public class CPU {
 
     public CPU(Memory memory){
         this.memory = memory;
-        a = new Register8((byte) 0); //accumulator
+        a = new Register8((char) 0); //accumulator
         f = new Flags(); //flags
-        b = new Register8((byte) 0);
-        c = new Register8((byte) 0);
-        d = new Register8((byte) 0);
-        e = new Register8((byte) 0);
-        h = new Register8((byte) 0);
-        l = new Register8((byte) 0);
+        b = new Register8((char) 0);
+        c = new Register8((char) 0);
+        d = new Register8((char) 0);
+        e = new Register8((char) 0);
+        h = new Register8((char) 0);
+        l = new Register8((char) 0);
         sp = new Register16((char) 0); //stack pointer
         pc = new Register16((char) 0); //program counter
 
@@ -122,11 +133,11 @@ public class CPU {
 
     }
 
-    private byte popByteFromStack() throws InvalidMemoryReadLocationException, IOException {
+    private char popByteFromStack() throws InvalidMemoryReadLocationException, IOException {
         return memory.read(sp.value++);
     }
 
-    private void pushByteToStack(byte b) throws InvalidMemoryWriteLocationException {
+    private void pushByteToStack(char b) throws InvalidMemoryWriteLocationException {
         memory.write(sp.value--, b);
     }
 
@@ -134,12 +145,12 @@ public class CPU {
         return getAddress(memory.read(pc.getAndIncrement()), memory.read(pc.getAndIncrement()));
     }
 
-    private char getHighRamAddress(byte b) {
+    private char getHighRamAddress(char b) {
         return (char) (b + 0x9900);
     }
 
-    private char getAddress(byte b, byte c) {
-        return (char) (b * 256 + c);
+    private char getAddress(char b, char c) {
+        return (char) (c * 256 + b);
     }
 
     private int getByteFromMemory() throws InvalidMemoryReadLocationException, IOException {
@@ -150,11 +161,11 @@ public class CPU {
         return getWord(memory.read(pc.getAndIncrement()), memory.read(pc.getAndIncrement()));
     }
 
-    private char getWord(byte top, byte bottom) {
-        return (char) (top * 256 + bottom);
+    private char getWord(char top, char bottom) {
+        return (char) (bottom * 256 + top);
     }
 
-    public void interpret(int instruction) throws InstructionNotImplementedException, InvalidInstructionException, InvalidMemoryReadLocationException, IOException, InvalidMemoryWriteLocationException {
+    private void interpret(int instruction) throws InstructionNotImplementedException, InvalidInstructionException, InvalidMemoryReadLocationException, IOException, InvalidMemoryWriteLocationException {
         switch (instruction) {
             case 0x00: nop(); break;
             case 0x01: loadRegisters16(b, c, getWordFromMemory()); break;
@@ -162,7 +173,7 @@ public class CPU {
             case 0x03: increment(b, c); break;
             case 0x04: increment(b); break;
             case 0x05: decrement(b); break;
-            case 0x06: loadRegister8(b, (byte) getByteFromMemory()); break;
+            case 0x06: loadValueToRegister8(b, (char) getByteFromMemory()); break;
             case 0x07: rotateLeftCarryAccumulator(); break;
             case 0x08: loadMemory16(getAddressFromMemory(), sp.value); break;
             case 0x09: add16(h, l, b, c); break;
@@ -170,7 +181,7 @@ public class CPU {
             case 0x0B: decrement(b, c);
             case 0x0C: increment(c); break;
             case 0x0D: decrement(c); break;
-            case 0x0E: loadRegister8(c, (byte) getByteFromMemory()); break;
+            case 0x0E: loadValueToRegister8(c, (char) getByteFromMemory()); break;
             case 0x0F: rotateRightCarryAccumulator(); break;
 
             case 0x10: stop(); pc.getAndIncrement(); break;
@@ -179,7 +190,7 @@ public class CPU {
             case 0x13: increment(d, e); break;
             case 0x14: increment(d); break;
             case 0x15: decrement(d); break;
-            case 0x16: loadRegister8(d, (byte) getByteFromMemory()); break;
+            case 0x16: loadValueToRegister8(d, (char) getByteFromMemory()); break;
             case 0x17: rotateLeftAccumulator(); break;
             case 0x18: jumpRelative((byte) getByteFromMemory()); break;
             case 0x19: add16(h, l, d, e); break;
@@ -187,7 +198,7 @@ public class CPU {
             case 0x1B: decrement(d, e);
             case 0x1C: increment(e); break;
             case 0x1D: decrement(e); break;
-            case 0x1E: loadRegister8(e, (byte) getByteFromMemory()); break;
+            case 0x1E: loadValueToRegister8(e, (char) getByteFromMemory()); break;
             case 0x1F: rotateRightAccumulator(); break;
 
             case 0x20: jumpRelative(!f.getZero(), (byte) getByteFromMemory()); break;
@@ -196,7 +207,7 @@ public class CPU {
             case 0x23: increment(h, l); break;
             case 0x24: increment(h); break;
             case 0x25: decrement(h); break;
-            case 0x26: loadRegister8(h, (byte) getByteFromMemory()); break;
+            case 0x26: loadValueToRegister8(h, (char) getByteFromMemory()); break;
             case 0x27: decimalAdjustAccumulator(); break;
             case 0x28: jumpRelative(f.getZero(), (byte) getByteFromMemory()); break;
             case 0x29: add16(h, l, h, l); break;
@@ -204,7 +215,7 @@ public class CPU {
             case 0x2B: decrement(h, l);
             case 0x2C: increment(l); break;
             case 0x2D: decrement(l); break;
-            case 0x2E: loadRegister8(l, (byte) getByteFromMemory()); break;
+            case 0x2E: loadValueToRegister8(l, (char) getByteFromMemory()); break;
             case 0x2F: complementAccumulator(); break;
 
             case 0x30: jumpRelative(!f.getCarry(), (byte) getByteFromMemory()); break;
@@ -213,7 +224,7 @@ public class CPU {
             case 0x33: increment(sp); break;
             case 0x34: increment(getAddress(h.value, l.value)); break;
             case 0x35: decrement(getAddress(h.value, l.value)); break;
-            case 0x36: loadRegister8(getAddress(h.value, l.value), (byte) getByteFromMemory()); break;
+            case 0x36: loadRegister8(getAddress(h.value, l.value), (char) getByteFromMemory()); break;
             case 0x37: setCarryFlag(); break;
             case 0x38: jumpRelative(f.getCarry(), (byte) getByteFromMemory()); break;
             case 0x39: add16(h, l, sp); break;
@@ -221,7 +232,7 @@ public class CPU {
             case 0x3B: decrement(sp);
             case 0x3C: increment(a); break;
             case 0x3D: decrement(a); break;
-            case 0x3E: loadRegister8(a, (byte) getByteFromMemory()); break;
+            case 0x3E: loadValueToRegister8(a, (char) getByteFromMemory()); break;
             case 0x3F: complementCarryFlag(); break;
 
             case 0x40: loadRegister8(b, b); break;
@@ -393,25 +404,25 @@ public class CPU {
 
             case 0xE0: loadHigh(getByteFromMemory(), a);
             case 0xE1: pop(h, l); break;
-            case 0xE2: loadMemory8(getHighRamAddress(c.value), a); //TODO check
+            case 0xE2: loadMemory8(getHighRamAddress(c.value), a); //check
             case 0xE5: push(getWord(h.value, l.value)); break;
             case 0xE6: and8((char) getByteFromMemory()); break;
             case 0xE7: restart(0x20); break;
             case 0xE8: add16(sp, getByteFromMemory()); break;
-            case 0xE9: jumpFast(getAddress(h.value, l.value)); //TODO check JP (HL)
-            case 0xEA: time += 8; loadMemory16(getAddressFromMemory(), (char) a.value); break;
+            case 0xE9: jumpFast(getAddress(h.value, l.value)); //check JP (HL)
+            case 0xEA: time += 8; loadMemory16(getAddressFromMemory(), a.value); break;
             case 0xEE: xor8((char) getByteFromMemory());
             case 0xEF: restart(0x28); break;
 
             case 0xF0: loadHigh(a, getByteFromMemory());
             case 0xF1: pop(b, c); break;
-            case 0xF2: loadRegister8(a, getHighRamAddress(c.value)); //TODO check
+            case 0xF2: loadRegister8(a, getHighRamAddress(c.value)); //check
             case 0xF3: disableInterrupts(); break;
             case 0xF5: push(getWord(a.value, f.value)); break;
             case 0xF6: or8((char) getByteFromMemory()); break;
             case 0xF7: restart(0x30); break;
-            case 0xF8: loadRegisters16(h, l, (char) (sp.value + getByteFromMemory())); //TODO check LD HL,SP+r8
-            case 0xF9: loadRegisters16(sp, h, l); //TODO check LD SP,HL
+            case 0xF8: loadRegisters16(h, l, (char) (sp.value + getByteFromMemory())); //check LD HL,SP+r8
+            case 0xF9: loadRegisters16(sp, h, l); //check LD SP,HL
             case 0xFA: time += 8; loadRegister8(a, memory.read(getAddress(h.value, l.value))); break;
             case 0xFB: enableInterrupts(); break;
             case 0xFE: cp8((char) getByteFromMemory()); break;
@@ -421,10 +432,260 @@ public class CPU {
         }
     }
 
-    private void prefixCB(int instruction) throws InstructionNotImplementedException {
+    private void prefixCB(int instruction) throws InstructionNotImplementedException, InvalidMemoryReadLocationException, IOException, InvalidMemoryWriteLocationException {
         switch (instruction) {
-            default: throw new InstructionNotImplementedException();
+
+
+            case 0x40: bit(0, b); break;
+            case 0x41: bit(0, c); break;
+            case 0x42: bit(0, d); break;
+            case 0x43: bit(0, e); break;
+            case 0x44: bit(0, h); break;
+            case 0x45: bit(0, l); break;
+            case 0x46: bit(0, memory.read(getAddress(h, l))); break;
+            case 0x47: bit(0, a); break;
+            case 0x48: bit(1, b); break;
+            case 0x49: bit(1, c); break;
+            case 0x4A: bit(1, d); break;
+            case 0x4B: bit(1, e); break;
+            case 0x4C: bit(1, h); break;
+            case 0x4D: bit(1, l); break;
+            case 0x4E: bit(1, memory.read(getAddress(h, l))); break;
+            case 0x4F: bit(1, a); break;
+
+            case 0x50: bit(2, b); break;
+            case 0x51: bit(2, c); break;
+            case 0x52: bit(2, d); break;
+            case 0x53: bit(2, e); break;
+            case 0x54: bit(2, h); break;
+            case 0x55: bit(2, l); break;
+            case 0x56: bit(2, memory.read(getAddress(h, l))); break;
+            case 0x57: bit(2, a); break;
+            case 0x58: bit(3, b); break;
+            case 0x59: bit(3, c); break;
+            case 0x5A: bit(3, d); break;
+            case 0x5B: bit(3, e); break;
+            case 0x5C: bit(3, h); break;
+            case 0x5D: bit(3, l); break;
+            case 0x5E: bit(3, memory.read(getAddress(h, l))); break;
+            case 0x5F: bit(3, a); break;
+
+            case 0x60: bit(4, b); break;
+            case 0x61: bit(4, c); break;
+            case 0x62: bit(4, d); break;
+            case 0x63: bit(4, e); break;
+            case 0x64: bit(4, h); break;
+            case 0x65: bit(4, l); break;
+            case 0x66: bit(4, memory.read(getAddress(h, l))); break;
+            case 0x67: bit(4, a); break;
+            case 0x68: bit(5, b); break;
+            case 0x69: bit(5, c); break;
+            case 0x6A: bit(5, d); break;
+            case 0x6B: bit(5, e); break;
+            case 0x6C: bit(5, h); break;
+            case 0x6D: bit(5, l); break;
+            case 0x6E: bit(5, memory.read(getAddress(h, l))); break;
+            case 0x6F: bit(5, a); break;
+
+            case 0x70: bit(6, b); break;
+            case 0x71: bit(6, c); break;
+            case 0x72: bit(6, d); break;
+            case 0x73: bit(6, e); break;
+            case 0x74: bit(6, h); break;
+            case 0x75: bit(6, l); break;
+            case 0x76: bit(6, memory.read(getAddress(h, l))); break;
+            case 0x77: bit(6, a); break;
+            case 0x78: bit(7, b); break;
+            case 0x79: bit(7, c); break;
+            case 0x7A: bit(7, d); break;
+            case 0x7B: bit(7, e); break;
+            case 0x7C: bit(7, h); break;
+            case 0x7D: bit(7, l); break;
+            case 0x7E: bit(7, memory.read(getAddress(h, l))); break;
+            case 0x7F: bit(7, a); break;
+
+            case 0x80: reset(0, b); break;
+            case 0x81: reset(0, c); break;
+            case 0x82: reset(0, d); break;
+            case 0x83: reset(0, e); break;
+            case 0x84: reset(0, h); break;
+            case 0x85: reset(0, l); break;
+            case 0x86: reset(0, getAddress(h, l)); break;
+            case 0x87: reset(0, a); break;
+            case 0x88: reset(1, b); break;
+            case 0x89: reset(1, c); break;
+            case 0x8A: reset(1, d); break;
+            case 0x8B: reset(1, e); break;
+            case 0x8C: reset(1, h); break;
+            case 0x8D: reset(1, l); break;
+            case 0x8E: reset(1, getAddress(h, l)); break;
+            case 0x8F: reset(1, a); break;
+
+            case 0x90: reset(2, b); break;
+            case 0x91: reset(2, c); break;
+            case 0x92: reset(2, d); break;
+            case 0x93: reset(2, e); break;
+            case 0x94: reset(2, h); break;
+            case 0x95: reset(2, l); break;
+            case 0x96: reset(2, getAddress(h, l)); break;
+            case 0x97: reset(2, a); break;
+            case 0x98: reset(3, b); break;
+            case 0x99: reset(3, c); break;
+            case 0x9A: reset(3, d); break;
+            case 0x9B: reset(3, e); break;
+            case 0x9C: reset(3, h); break;
+            case 0x9D: reset(3, l); break;
+            case 0x9E: reset(3, getAddress(h, l)); break;
+            case 0x9F: reset(3, a); break;
+
+            case 0xA0: reset(4, b); break;
+            case 0xA1: reset(4, c); break;
+            case 0xA2: reset(4, d); break;
+            case 0xA3: reset(4, e); break;
+            case 0xA4: reset(4, h); break;
+            case 0xA5: reset(4, l); break;
+            case 0xA6: reset(4, getAddress(h, l)); break;
+            case 0xA7: reset(4, a); break;
+            case 0xA8: reset(5, b); break;
+            case 0xA9: reset(5, c); break;
+            case 0xAA: reset(5, d); break;
+            case 0xAB: reset(5, e); break;
+            case 0xAC: reset(5, h); break;
+            case 0xAD: reset(5, l); break;
+            case 0xAE: reset(5, getAddress(h, l)); break;
+            case 0xAF: reset(5, a); break;
+
+            case 0xB0: reset(6, b); break;
+            case 0xB1: reset(6, c); break;
+            case 0xB2: reset(6, d); break;
+            case 0xB3: reset(6, e); break;
+            case 0xB4: reset(6, h); break;
+            case 0xB5: reset(6, l); break;
+            case 0xB6: reset(6, getAddress(h, l)); break;
+            case 0xB7: reset(6, a); break;
+            case 0xB8: reset(7, b); break;
+            case 0xB9: reset(7, c); break;
+            case 0xBA: reset(7, d); break;
+            case 0xBB: reset(7, e); break;
+            case 0xBC: reset(7, h); break;
+            case 0xBD: reset(7, l); break;
+            case 0xBE: reset(7, getAddress(h, l)); break;
+            case 0xBF: reset(7, a); break;
+
+            case 0xC0: set(0, b); break;
+            case 0xC1: set(0, c); break;
+            case 0xC2: set(0, d); break;
+            case 0xC3: set(0, e); break;
+            case 0xC4: set(0, h); break;
+            case 0xC5: set(0, l); break;
+            case 0xC6: set(0, getAddress(h, l)); break;
+            case 0xC7: set(0, a); break;
+            case 0xC8: set(1, b); break;
+            case 0xC9: set(1, c); break;
+            case 0xCA: set(1, d); break;
+            case 0xCB: set(1, e); break;
+            case 0xCC: set(1, h); break;
+            case 0xCD: set(1, l); break;
+            case 0xCE: set(1, getAddress(h, l)); break;
+            case 0xCF: set(1, a); break;
+
+            case 0xD0: set(2, b); break;
+            case 0xD1: set(2, c); break;
+            case 0xD2: set(2, d); break;
+            case 0xD3: set(2, e); break;
+            case 0xD4: set(2, h); break;
+            case 0xD5: set(2, l); break;
+            case 0xD6: set(2, getAddress(h, l)); break;
+            case 0xD7: set(2, a); break;
+            case 0xD8: set(3, b); break;
+            case 0xD9: set(3, c); break;
+            case 0xDA: set(3, d); break;
+            case 0xDB: set(3, e); break;
+            case 0xDC: set(3, h); break;
+            case 0xDD: set(3, l); break;
+            case 0xDE: set(3, getAddress(h, l)); break;
+            case 0xDF: set(3, a); break;
+
+            case 0xE0: set(4, b); break;
+            case 0xE1: set(4, c); break;
+            case 0xE2: set(4, d); break;
+            case 0xE3: set(4, e); break;
+            case 0xE4: set(4, h); break;
+            case 0xE5: set(4, l); break;
+            case 0xE6: set(4, getAddress(h, l)); break;
+            case 0xE7: set(4, a); break;
+            case 0xE8: set(5, b); break;
+            case 0xE9: set(5, c); break;
+            case 0xEA: set(5, d); break;
+            case 0xEB: set(5, e); break;
+            case 0xEC: set(5, h); break;
+            case 0xED: set(5, l); break;
+            case 0xEE: set(5, getAddress(h, l)); break;
+            case 0xEF: set(5, a); break;
+
+            case 0xF0: set(6, b); break;
+            case 0xF1: set(6, c); break;
+            case 0xF2: set(6, d); break;
+            case 0xF3: set(6, e); break;
+            case 0xF4: set(6, h); break;
+            case 0xF5: set(6, l); break;
+            case 0xF6: set(6, getAddress(h, l)); break;
+            case 0xF7: set(6, a); break;
+            case 0xF8: set(7, b); break;
+            case 0xF9: set(7, c); break;
+            case 0xFA: set(7, d); break;
+            case 0xFB: set(7, e); break;
+            case 0xFC: set(7, h); break;
+            case 0xFD: set(7, l); break;
+            case 0xFE: set(7, getAddress(h, l)); break;
+            case 0xFF: set(7, a); break;
+
+            default: throw new InstructionNotImplementedException(String.format("CB %02X", instruction));
         }
+    }
+
+    private void reset(int i, char addr) throws InvalidMemoryReadLocationException, IOException, InvalidMemoryWriteLocationException {
+        memory.write(addr, (char) (memory.read(addr) & (0xFF - (1 << i))));
+
+        time += 16;
+    }
+
+    private void reset(int i, Register8 b) {
+        b.reset(i);
+
+        time += 8;
+    }
+
+    private void set(int i, char addr) throws InvalidMemoryReadLocationException, IOException, InvalidMemoryWriteLocationException {
+        memory.write(addr, (char) (memory.read(addr) | (1 << i)));
+
+        time += 16;
+    }
+
+    private void set(int i, Register8 b) {
+        b.set(i);
+
+        time += 8;
+    }
+
+    private void bit(int i, char value) {
+        bitOp(i, value);
+        time += 16;
+    }
+
+    private void bit(int i, Register8 b) {
+        bitOp(i, b.value);
+        time += 8;
+    }
+
+    private void bitOp(int i, char reg) {
+        f.set((reg & (1 << i)) > 0, 7);
+        f.set(false, 6);
+        f.set(true, 5);
+    }
+
+    private char getAddress(Register8 h, Register8 l) {
+        return getAddress(h.value, l.value);
     }
 
     private void loadRegisters16(Register16 sp, Register8 h, Register8 l) {
@@ -442,16 +703,16 @@ public class CPU {
     private void loadDecrement(Register8 a, Register8 h, Register8 l) throws InvalidMemoryReadLocationException, IOException {
         a.value = memory.read(getAddress(h.value, l.value));
         l.decrement();
-        if (l.value == Byte.MAX_VALUE)
+        if (l.value == 0xFF)
             h.decrement();
 
         time += 8;
     }
 
-    private void loadDecrement(Register8 h, Register8 l, byte value) throws InvalidMemoryWriteLocationException {
+    private void loadDecrement(Register8 h, Register8 l, char value) throws InvalidMemoryWriteLocationException {
         memory.write(getAddress(h.value, l.value), value);
         l.decrement();
-        if (l.value == Byte.MAX_VALUE)
+        if (l.value == 0xFF)
             h.decrement();
 
         time += 8;
@@ -460,17 +721,21 @@ public class CPU {
     private void loadIncrement(Register8 a, Register8 h, Register8 l) throws InvalidMemoryReadLocationException, IOException {
         a.value = memory.read(getAddress(h.value, l.value));
         l.increment();
-        if (l.value == Byte.MIN_VALUE)
+        if (l.value == 0) {
+            l.value = 0;
             h.increment();
+        }
 
         time += 8;
     }
 
-    private void loadIncrement(Register8 h, Register8 l, byte a) throws InvalidMemoryWriteLocationException {
+    private void loadIncrement(Register8 h, Register8 l, char a) throws InvalidMemoryWriteLocationException {
         memory.write(getAddress(h.value, l.value), a);
         l.increment();
-        if (l.value == Byte.MIN_VALUE)
+        if (l.value == 0) {
+            l.value = 0;
             h.increment();
+        }
 
         time += 8;
     }
@@ -513,8 +778,8 @@ public class CPU {
     private void call(boolean b, char address) throws InvalidMemoryWriteLocationException {
         if (b) {
             pc.increment();
-            pushByteToStack((byte) (pc.value & 0xFF));
-            pushByteToStack((byte) (pc.value & 0xFF00));
+            pushByteToStack((char) (pc.value & 0xFF));
+            pushByteToStack((char) ((pc.value & 0xFF00) >> 8));
             pc.value = address;
             time += 24;
         } else {
@@ -537,8 +802,8 @@ public class CPU {
     }
 
     private void restart(int i) throws InvalidMemoryWriteLocationException {
-        pushByteToStack((byte) (pc.value & 0xFF));
-        pushByteToStack((byte) (pc.value & 0xFF00));
+        pushByteToStack((char) (pc.value & 0xFF));
+        pushByteToStack((char) ((pc.value & 0xFF00) >> 8));
 
         pc.value = (char) i;
 
@@ -546,8 +811,8 @@ public class CPU {
     }
 
     private void push(char word) throws InvalidMemoryWriteLocationException {
-        pushByteToStack((byte) (word & 0xFF));
-        pushByteToStack((byte) (word & 0xFF00));
+        pushByteToStack((char) (word & 0xFF));
+        pushByteToStack((char) ((word & 0xFF00) >> 8));
 
         time += 16;
     }
@@ -579,8 +844,8 @@ public class CPU {
     }
 
     private void cp8(char value) {
-        time += 4;
-        cp8((byte) value);
+        cpOp8(value);
+        time += 8;
     }
 
     private void cp8(Register8 b) {
@@ -588,8 +853,8 @@ public class CPU {
     }
 
     private void or8(char value) {
-        time += 4;
-        or8((byte) value);
+        orOp8(value);
+        time += 8;
     }
 
     private void or8(Register8 d) {
@@ -597,8 +862,8 @@ public class CPU {
     }
 
     private void xor8(char value) {
-        time += 4;
-        xor8((byte) value);
+        xorOp8(value);
+        time += 8;
     }
 
     private void xor8(Register8 b) {
@@ -606,8 +871,8 @@ public class CPU {
     }
 
     private void and8(char value) {
-        time += 4;
-        and8((byte) value);
+        andOp8(value);
+        time += 8;
     }
 
     private void and8(Register8 b) {
@@ -615,8 +880,8 @@ public class CPU {
     }
 
     private void sbc8(char value) {
-        time += 4;
-        sbc8((byte) value);
+        sbcOp8(value);
+        time += 8;
     }
 
     private void sbc8(Register8 b) {
@@ -624,8 +889,8 @@ public class CPU {
     }
 
     private void sub8(char value) {
-        time += 4;
-        sub8((byte) value);
+        subOp8(value);
+        time += 8;
     }
 
     private void sub8(Register8 b) {
@@ -637,74 +902,66 @@ public class CPU {
     }
 
     private void adc8(char value) {
-        time += 4;
-        adc8((byte) value);
+        adcOp8(value);
+        time += 8;
     }
 
     private void add8(char value) {
-        time += 4;
-        add8((byte) value);
+        addOp8(value);
+        time += 8;
     }
 
     private void add8(Register8 b){
         add8(b.value);
     }
 
-    private void cp8(byte c) {
+    private void cpOp8(char c) {
         f.set(a.value == c, 7);
         f.set(true, 6);
         f.set(((a.value & 0xF) - (c & 0xF)) < 0, 5);
         f.set(a.value < c, 4);
-
-        time += 4;
     }
 
-    private void or8(byte d) {
+    private void orOp8(char d) {
         a.value |= d;
 
         f.set(a.value == 0, 7);
         f.set(false, 6);
         f.set(false, 5);
         f.set(false, 4);
-
-        time += 4;
     }
 
-    private void xor8(byte d) {
+    private void xorOp8(char d) {
         a.value ^= d;
 
         f.set(a.value == 0, 7);
         f.set(false, 6);
         f.set(false, 5);
         f.set(false, 4);
-
-        time += 4;
     }
 
-    private void and8(byte c) {
+    private void andOp8(char c) {
         a.value &= c;
 
         f.set(a.value == 0, 7);
         f.set(false, 6);
         f.set(true, 5);
         f.set(false, 4);
-
-        time += 4;
     }
 
-    private void sbc8(byte h) {
+    private void sbcOp8(char h) {
         //TODO
     }
 
-    private void sub8(byte b) {
+    private void subOp8(char b) {
         //TODO
     }
 
-    private void adc8(byte b) {
+    private void adcOp8(char b) {
         //TODO
     }
 
-    private void add8(byte b) {
+    private void addOp8(char b) {
         //check
 
         char r = (char) (a.value + b);
@@ -714,11 +971,8 @@ public class CPU {
 
         f.set(false, 6);
 
-        f.set(r % 256 == 0, 7);
-
-        a.value = (byte) (r % 256);
-
-        time += 4;
+        a.value = (char) (r % 256);
+        f.set(a.value == 0, 7);
     }
 
     private void halt() {
@@ -736,7 +990,7 @@ public class CPU {
     private void complementAccumulator() {
         //make sure this is correct
 
-        a.value = (byte) -a.value;
+        a.value = (char) -a.value;
         f.set(true, 5);
         f.set(true, 6);
         time += 4;
@@ -777,8 +1031,8 @@ public class CPU {
     }
 
     private void add16(Register8 h, Register8 l, Register16 sp) {
-        byte high = (byte) ((sp.value >> 8) & 0xFF);
-        byte low = (byte) (sp.value & 0xFF);
+        char high = (char) ((sp.value >> 8) & 0xFF);
+        char low = (char) (sp.value & 0xFF);
         add16(h, l, high, low);
     }
 
@@ -789,14 +1043,14 @@ public class CPU {
         time += 4;
     }
 
-    private void loadRegister8(char address, byte byteFromMemory) throws InvalidMemoryWriteLocationException {
+    private void loadRegister8(char address, char byteFromMemory) throws InvalidMemoryWriteLocationException {
         memory.write(address, byteFromMemory);
         time += 12;
     }
 
     private void decrement(char address) throws InvalidMemoryReadLocationException, IOException, InvalidMemoryWriteLocationException {
         memory.decrement(address);
-        byte value = memory.read(address);
+        char value = memory.read(address);
         f.set((value & 0x0F) == 0, 5);
         f.set(true, 6);
         f.set(value == 0, 7);
@@ -805,7 +1059,7 @@ public class CPU {
 
     private void increment(char address) throws InvalidMemoryReadLocationException, IOException, InvalidMemoryWriteLocationException {
         memory.increment(address);
-        byte value = memory.read(address);
+        char value = memory.read(address);
         f.set((value & 0x0F) == 0, 5);
         f.set(false, 6);
         f.set(value == 0, 7);
@@ -871,7 +1125,7 @@ public class CPU {
 
     private void decrement(Register8 high, Register8 low) {
         low.decrement();
-        if (low.value == -128)
+        if (low.value == 0xFF)
             high.decrement();
 
         time += 8;
@@ -881,8 +1135,8 @@ public class CPU {
         add16(h, l, b.value, c.value);
     }
 
-    private void add16(Register8 h, Register8 l, byte b, byte c){
-        char low = (char) (((char) l.value) + ((char) c));
+    private void add16(Register8 h, Register8 l, char b, char c){
+        char low = (char) (l.value + c);
         char high = (char) (low>255?1:0);
         low %= 256;
 
@@ -891,8 +1145,8 @@ public class CPU {
         high += b;
         high += h.value;
         high %= 256;
-        h.value = (byte) high;
-        l.value = (byte) low;
+        h.value = (char) (high % 256);
+        l.value = (char) (low % 256);
 
 
         f.set(false, 6);
@@ -904,8 +1158,8 @@ public class CPU {
     }
 
     private void loadMemory16(char addressFromMemory, char value) throws InvalidMemoryWriteLocationException {
-        memory.write(addressFromMemory, (byte) ((value >> 8) & 0xFF));
-        memory.write((char) (addressFromMemory + 1), (byte) (value & 0xFF));
+        memory.write(addressFromMemory, (char) ((value >> 8) & 0xFF));
+        memory.write((char) (addressFromMemory + 1), (char) (value & 0xFF));
 
         time += 20;
     }
@@ -920,10 +1174,10 @@ public class CPU {
     }
 
     private void loadRegister8(Register8 b, char memoryLocation) throws InvalidMemoryReadLocationException, IOException {
-        loadRegister8(b, memory.read(memoryLocation));
+        loadValueToRegister8(b, memory.read(memoryLocation));
     }
 
-    private void loadRegister8(Register8 b, byte byteFromMemory) {
+    private void loadValueToRegister8(Register8 b, char byteFromMemory) {
         b.value = byteFromMemory;
 
         time += 8;
@@ -963,8 +1217,8 @@ public class CPU {
     }
 
     private void loadRegisters16(Register8 b, Register8 c, char wordFromMemory) {
-        b.value = (byte) ((wordFromMemory >> 8) & 0xFF);
-        c.value = (byte) ((wordFromMemory) & 0xFF);
+        b.value = (char) (((wordFromMemory >> 8) & 0xFF) % 256);
+        c.value = (char) (((wordFromMemory) & 0xFF) % 256);
         time += 12;
     }
 
