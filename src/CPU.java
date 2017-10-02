@@ -1,8 +1,6 @@
 import java.io.IOException;
 
-/**
- * Created by Goncalo on 30/09/2017.
- */
+
 public class CPU {
 
     class Register16 {
@@ -95,6 +93,7 @@ public class CPU {
     Flags f;
     Register16 sp, pc;
     Memory memory;
+    boolean interruptsEnabled;
 
     long time;
 
@@ -111,11 +110,32 @@ public class CPU {
         sp = new Register16((char) 0); //stack pointer
         pc = new Register16((char) 0); //program counter
 
+        interruptsEnabled = false; //check if interrupts start disabled
+
         time = 0;
+    }
+
+    public void run() throws InvalidMemoryReadLocationException, IOException, InvalidMemoryWriteLocationException, InstructionNotImplementedException, InvalidInstructionException {
+        while (true) {
+            interpret(getByteFromMemory());
+        }
+
+    }
+
+    private byte popByteFromStack() throws InvalidMemoryReadLocationException, IOException {
+        return memory.read(sp.value++);
+    }
+
+    private void pushByteToStack(byte b) throws InvalidMemoryWriteLocationException {
+        memory.write(sp.value--, b);
     }
 
     private char getAddressFromMemory() throws InvalidMemoryReadLocationException, IOException {
         return getAddress(memory.read(pc.getAndIncrement()), memory.read(pc.getAndIncrement()));
+    }
+
+    private char getHighRamAddress(byte b) {
+        return (char) (b + 0x9900);
     }
 
     private char getAddress(byte b, byte c) {
@@ -172,8 +192,7 @@ public class CPU {
 
             case 0x20: jumpRelative(!f.getZero(), (byte) getByteFromMemory()); break;
             case 0x21: loadRegisters16(h, l, getWordFromMemory()); break;
-            //case 0x22: loadMemory8(getAddress(h.value, l.value), a); break; //TODO LD (HL+),A
-            case 0x22: throw new InstructionNotImplementedException();
+            case 0x22: loadIncrement(h, l, a.value);
             case 0x23: increment(h, l); break;
             case 0x24: increment(h); break;
             case 0x25: decrement(h); break;
@@ -181,8 +200,7 @@ public class CPU {
             case 0x27: decimalAdjustAccumulator(); break;
             case 0x28: jumpRelative(f.getZero(), (byte) getByteFromMemory()); break;
             case 0x29: add16(h, l, h, l); break;
-            //case 0x2A: loadRegister8(a, getAddress(h.value, l.value)); break; //TODO LD A,(HL+)
-            case 0x2A: throw new InstructionNotImplementedException();
+            case 0x2A: loadIncrement(a, h, l);
             case 0x2B: decrement(h, l);
             case 0x2C: increment(l); break;
             case 0x2D: decrement(l); break;
@@ -191,8 +209,7 @@ public class CPU {
 
             case 0x30: jumpRelative(!f.getCarry(), (byte) getByteFromMemory()); break;
             case 0x31: loadRegisters16(sp, getWordFromMemory()); break;
-            //case 0x32: loadMemory8(getAddress(h.value, l.value), a); break; //TODO LD (HL-),A
-            case 0x32: throw new InstructionNotImplementedException();
+            case 0x32: loadDecrement(h, l, a.value);
             case 0x33: increment(sp); break;
             case 0x34: increment(getAddress(h.value, l.value)); break;
             case 0x35: decrement(getAddress(h.value, l.value)); break;
@@ -200,8 +217,7 @@ public class CPU {
             case 0x37: setCarryFlag(); break;
             case 0x38: jumpRelative(f.getCarry(), (byte) getByteFromMemory()); break;
             case 0x39: add16(h, l, sp); break;
-            //case 0x3A: loadRegister8(a, getAddress(h.value, l.value)); break; //TODO LD A,(HL-)
-            case 0x3A: throw new InstructionNotImplementedException();
+            case 0x3A: loadDecrement(a, h, l);
             case 0x3B: decrement(sp);
             case 0x3C: increment(a); break;
             case 0x3D: decrement(a); break;
@@ -375,34 +391,27 @@ public class CPU {
             case 0xDE: sbc8((char) getByteFromMemory());
             case 0xDF: restart(0x18); break;
 
-            //case 0xE0: ret(!f.getCarry()); break; //TODO LDH (a8),A
-            case 0xE0: throw new InstructionNotImplementedException();
+            case 0xE0: loadHigh(getByteFromMemory(), a);
             case 0xE1: pop(h, l); break;
-            //case 0xE2: jumpAbsolute(!f.getCarry(), getAddressFromMemory()); break; //TODO LD (C),A
-            case 0xE2: throw new InstructionNotImplementedException();
+            case 0xE2: loadMemory8(getHighRamAddress(c.value), a); //TODO check
             case 0xE5: push(getWord(h.value, l.value)); break;
             case 0xE6: and8((char) getByteFromMemory()); break;
             case 0xE7: restart(0x20); break;
             case 0xE8: add16(sp, getByteFromMemory()); break;
-            //case 0xE9: jumpAbsolute(true, memory[getAddress(h.value, l.value)]); break; //TODO JP (HL)
-            case 0xE9: throw new InstructionNotImplementedException();
+            case 0xE9: jumpFast(getAddress(h.value, l.value)); //TODO check JP (HL)
             case 0xEA: time += 8; loadMemory16(getAddressFromMemory(), (char) a.value); break;
             case 0xEE: xor8((char) getByteFromMemory());
             case 0xEF: restart(0x28); break;
 
-            //case 0xF0: ret(!f.getZero()); break; //TODO LDH A,(a8)
-            case 0xF0: throw new InstructionNotImplementedException();
+            case 0xF0: loadHigh(a, getByteFromMemory());
             case 0xF1: pop(b, c); break;
-            //case 0xF2: jumpAbsolute(!f.getZero(), getAddressFromMemory()); break; //TODO LD A,(C)
-            case 0xF2: throw new InstructionNotImplementedException();
+            case 0xF2: loadRegister8(a, getHighRamAddress(c.value)); //TODO check
             case 0xF3: disableInterrupts(); break;
             case 0xF5: push(getWord(a.value, f.value)); break;
             case 0xF6: or8((char) getByteFromMemory()); break;
             case 0xF7: restart(0x30); break;
-            //case 0xF8: ret(f.getZero()); break; //TODO LD HL,SP+r8
-            case 0xF8: throw new InstructionNotImplementedException();
-            //case 0xF9: absoluteReturn(); break; //TODO LD SP,HL
-            case 0xF9: throw new InstructionNotImplementedException();
+            case 0xF8: loadRegisters16(h, l, (char) (sp.value + getByteFromMemory())); //TODO check LD HL,SP+r8
+            case 0xF9: loadRegisters16(sp, h, l); //TODO check LD SP,HL
             case 0xFA: time += 8; loadRegister8(a, memory.read(getAddress(h.value, l.value))); break;
             case 0xFB: enableInterrupts(); break;
             case 0xFE: cp8((char) getByteFromMemory()); break;
@@ -412,11 +421,77 @@ public class CPU {
         }
     }
 
+    private void prefixCB(int instruction) throws InstructionNotImplementedException {
+        switch (instruction) {
+            default: throw new InstructionNotImplementedException();
+        }
+    }
+
+    private void loadRegisters16(Register16 sp, Register8 h, Register8 l) {
+        sp.value = getAddress(h.value, l.value);
+
+        time += 8;
+    }
+
+    private void jumpFast(char address) {
+        pc.value = address;
+
+        time += 4;
+    }
+
+    private void loadDecrement(Register8 a, Register8 h, Register8 l) throws InvalidMemoryReadLocationException, IOException {
+        a.value = memory.read(getAddress(h.value, l.value));
+        l.decrement();
+        if (l.value == Byte.MAX_VALUE)
+            h.decrement();
+
+        time += 8;
+    }
+
+    private void loadDecrement(Register8 h, Register8 l, byte value) throws InvalidMemoryWriteLocationException {
+        memory.write(getAddress(h.value, l.value), value);
+        l.decrement();
+        if (l.value == Byte.MAX_VALUE)
+            h.decrement();
+
+        time += 8;
+    }
+
+    private void loadIncrement(Register8 a, Register8 h, Register8 l) throws InvalidMemoryReadLocationException, IOException {
+        a.value = memory.read(getAddress(h.value, l.value));
+        l.increment();
+        if (l.value == Byte.MIN_VALUE)
+            h.increment();
+
+        time += 8;
+    }
+
+    private void loadIncrement(Register8 h, Register8 l, byte a) throws InvalidMemoryWriteLocationException {
+        memory.write(getAddress(h.value, l.value), a);
+        l.increment();
+        if (l.value == Byte.MIN_VALUE)
+            h.increment();
+
+        time += 8;
+    }
+
+    private void loadHigh(Register8 a, int byteFromMemory) throws InvalidMemoryReadLocationException, IOException {
+        a.value = memory.read((char) (0xFF00 + byteFromMemory));
+
+        time += 12;
+    }
+
+    private void loadHigh(int byteFromMemory, Register8 a) throws InvalidMemoryWriteLocationException {
+        memory.write((char) (0xFF00 + byteFromMemory), a.value);
+
+        time += 12;
+    }
+
     private void add16(Register16 sp, int byteFromMemory) {
         f.set(false, 7);
         f.set(false, 6);
-        //f.set(false, 5); //TODO check half-carry flag
-        //f.set(false, 4); //TODO check carry flag
+        f.set(((sp.value & 0xFFF) + (byteFromMemory & 0xFFF)) > 0xFFF, 5);
+        f.set(sp.value + byteFromMemory > 0xFFFF, 4);
 
         sp.value += byteFromMemory;
 
@@ -424,71 +499,73 @@ public class CPU {
     }
 
     private void enableInterrupts() {
-        //TODO
-
         time += 4;
+
+        interruptsEnabled = true;
     }
 
     private void disableInterrupts() {
-        //TODO
+        interruptsEnabled = false;
 
         time += 4;
     }
 
-    private void call(boolean b, char address) {
-        //TODO
-
-
+    private void call(boolean b, char address) throws InvalidMemoryWriteLocationException {
         if (b) {
+            pc.increment();
+            pushByteToStack((byte) (pc.value & 0xFF));
+            pushByteToStack((byte) (pc.value & 0xFF00));
+            pc.value = address;
             time += 24;
         } else {
             time += 12;
         }
     }
 
-    private void returnInterrupt() {
-        //TODO
+    private void returnInterrupt() throws InvalidMemoryReadLocationException, IOException {
+        pc.value = getAddress(popByteFromStack(), popByteFromStack());
+
+        interruptsEnabled = true;
 
         time += 16;
     }
 
-    private void absoluteReturn() {
-        //TODO
+    private void absoluteReturn() throws InvalidMemoryReadLocationException, IOException {
+        pc.value = getAddress(popByteFromStack(), popByteFromStack());
 
         time += 16;
     }
 
-    private void restart(int i) {
-        //TODO
+    private void restart(int i) throws InvalidMemoryWriteLocationException {
+        pushByteToStack((byte) (pc.value & 0xFF));
+        pushByteToStack((byte) (pc.value & 0xFF00));
+
+        pc.value = (char) i;
 
         time += 16;
     }
 
-    private void push(char word) {
-        //TODO
+    private void push(char word) throws InvalidMemoryWriteLocationException {
+        pushByteToStack((byte) (word & 0xFF));
+        pushByteToStack((byte) (word & 0xFF00));
 
         time += 16;
     }
 
-    private void pop(Register8 top, Register8 bottom) {
-        //TODO
+    private void pop(Register8 top, Register8 bottom) throws InvalidMemoryReadLocationException, IOException {
+        top.value = popByteFromStack();
+        bottom.value = popByteFromStack();
 
         time += 12;
     }
 
-    private void ret(boolean b) {
-        //TODO
+    private void ret(boolean b) throws InvalidMemoryReadLocationException, IOException {
         if (b) {
+            pc.value = getAddress(popByteFromStack(), popByteFromStack());
 
             time += 20;
         } else {
             time += 8;
-        }
-    }
-
-    private void prefixCB(int instruction) throws InstructionNotImplementedException {
-        switch (instruction) {
-            default: throw new InstructionNotImplementedException();
         }
     }
 
@@ -574,7 +651,12 @@ public class CPU {
     }
 
     private void cp8(byte c) {
-        //TODO
+        f.set(a.value == c, 7);
+        f.set(true, 6);
+        f.set(((a.value & 0xF) - (c & 0xF)) < 0, 5);
+        f.set(a.value < c, 4);
+
+        time += 4;
     }
 
     private void or8(byte d) {
@@ -623,7 +705,8 @@ public class CPU {
     }
 
     private void add8(byte b) {
-        //TODO check
+        //check
+
         char r = (char) (a.value + b);
         f.set(r > 255, 4);
 
@@ -639,7 +722,7 @@ public class CPU {
     }
 
     private void halt() {
-        //TODO what does this do?
+        //TODO power down CPU until an interrupt occurs
 
         time += 4;
     }
@@ -651,7 +734,7 @@ public class CPU {
     }
 
     private void complementAccumulator() {
-        //TODO make sure this is correct
+        //make sure this is correct
 
         a.value = (byte) -a.value;
         f.set(true, 5);
@@ -660,8 +743,24 @@ public class CPU {
     }
 
     private void decimalAdjustAccumulator() {
-        //TODO understand what this does
-        
+        //check
+
+        if ((a.value & 0xF) > 9) {
+            a.value += 0x6;
+        }
+        if (((a.value & 0xF0) >> 4) > 9) {
+            if (a.value + 0x60 > 255)
+                f.set(true, 5);
+            else
+                f.set(false, 5);
+
+            a.value += 0x60;
+        }
+
+        f.set(a.value == 0, 7);
+
+        f.set(false, 4);
+
         time += 4;
     }
 
@@ -786,6 +885,9 @@ public class CPU {
         char low = (char) (((char) l.value) + ((char) c));
         char high = (char) (low>255?1:0);
         low %= 256;
+
+        f.set((high + (b & 0xF) + (h.value & 0xF)) > 0xF, 5);
+
         high += b;
         high += h.value;
         high %= 256;
@@ -793,11 +895,10 @@ public class CPU {
         l.value = (byte) low;
 
 
-        //TODO set correct flags
-        f.set(false, 4);
-        f.set(false, 5);
         f.set(false, 6);
+        f.set(high > 255, 4);
 
+        //check flags
 
         time += 8;
     }

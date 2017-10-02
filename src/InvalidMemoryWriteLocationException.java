@@ -1,5 +1,3 @@
-/**
- * Created by Goncalo on 30/09/2017.
- */
-public class InvalidMemoryWriteLocationException extends Throwable {
+
+public class InvalidMemoryWriteLocationException extends Exception {
 }
