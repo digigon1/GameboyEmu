@@ -35,4 +35,8 @@ public class Cartridge {
     public void changeBank(char value) {
         bank = value;
     }
+
+    public String getName() {
+        return "TODO"; //TODO get name from cartridge
+    }
 }

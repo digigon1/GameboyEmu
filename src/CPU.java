@@ -6,19 +6,19 @@ public class CPU {
     class Register16 {
         char value;
 
-        public Register16(char value) {
+        Register16(char value) {
             this.value = value;
         }
 
-        public void increment() {
+        void increment() {
             value++;
         }
 
-        public void decrement() {
+        void decrement() {
             value--;
         }
 
-        public char getAndIncrement() {
+        char getAndIncrement() {
             char r = value;
             value++;
             return r;
@@ -28,70 +28,101 @@ public class CPU {
     class Register8 {
         char value;
 
-        public Register8(char value) {
+        Register8(char value) {
             this.value = value;
         }
 
-        public void increment() {
+        void increment() {
             value++;
             value %= 256;
         }
 
-        public void decrement() {
+        void decrement() {
             value--;
         }
 
-        public boolean rotateLeft(boolean rotateFromEdge) {
-            boolean r = value > 127;
+        boolean rotateLeft(boolean rotateFromEdge) {
+            int r = value / 128;
             value <<= 1;
-            if (rotateFromEdge && r || f.getCarry())
+            if (rotateFromEdge)
+                value |= r;
+            else if (f.getCarry())
                 value |= 1;
 
             value %= 256;
 
-            return r;
+            return r == 1;
         }
 
-        public boolean rotateRight(boolean rotateFromEdge) {
-            boolean r = (value % 2) == 1;
+        boolean rotateRight(boolean rotateFromEdge) {
+            int r = value % 2;
             value <<= 1;
-            if (rotateFromEdge && r || f.getCarry())
+            if (rotateFromEdge)
+                value |= r << 7;
+            else if (f.getCarry())
                 value |= 1 << 7;
 
-            return r;
+            return r == 1;
         }
 
-        public void set(int i) {
+        void set(int i) {
             value |= 1 << i;
         }
 
-        public void reset(int i) {
+        void reset(int i) {
             value &= 0xFF - (1 << i);
+        }
+
+        boolean shiftRight(boolean reset) {
+            boolean r = value % 2 == 1;
+            int b = value / 128;
+            value >>= 1;
+            if (reset)
+                value &= (0xFF - (1 << 7));
+            else
+                value |= b << 7;
+            return r;
+        }
+
+        boolean swap() {
+            int temp = (value & 0x0F) << 4 ;
+            temp += (value & 0xF0) >> 4;
+
+            value = (char) temp;
+
+            return value == 0;
+        }
+
+        boolean shiftLeft() {
+            boolean r = value / 128 == 1;
+            value <<= 1;
+            value &= (0xFF - 1);
+            return r;
         }
     }
 
     class Flags extends Register8 {
-        public Flags() {
+        Flags() {
             super((char) 0);
         }
 
-        public boolean getZero() {
+        boolean getZero() {
             return (value & (1 << 7)) > 0;
         }
 
-        public boolean getSubtract() {
+        boolean getSubtract() {
             return (value & (1 << 6)) > 0;
         }
 
-        public boolean getHalfCarry() {
+        boolean getHalfCarry() {
             return (value & (1 << 5)) > 0;
         }
 
-        public boolean getCarry() {
+        boolean getCarry() {
             return (value & (1 << 4)) > 0;
         }
 
-        public void set(boolean b, int i) {
+        void set(boolean b, int i) {
             if (b) {
                 value |= 1 << i;
             } else {
@@ -100,13 +131,13 @@ public class CPU {
         }
     }
 
-    Register8 a, b, c, d, e, h, l;
-    Flags f;
-    Register16 sp, pc;
-    Memory memory;
-    boolean interruptsEnabled;
+    private Register8 a, b, c, d, e, h, l;
+    private Flags f;
+    private Register16 sp, pc;
+    private Memory memory;
+    private boolean interruptsEnabled;
 
-    long time;
+    private long time;
 
     public CPU(Memory memory){
         this.memory = memory;
@@ -130,7 +161,6 @@ public class CPU {
         while (true) {
             interpret(getByteFromMemory());
         }
-
     }
 
     private char popByteFromStack() throws InvalidMemoryReadLocationException, IOException {
@@ -428,13 +458,79 @@ public class CPU {
             case 0xFE: cp8((char) getByteFromMemory()); break;
             case 0xFF: restart(0x38); break;
 
-            default: throw new InvalidInstructionException();
+            default: throw new InvalidInstructionException(String.format("%02X", instruction));
         }
     }
 
-    private void prefixCB(int instruction) throws InstructionNotImplementedException, InvalidMemoryReadLocationException, IOException, InvalidMemoryWriteLocationException {
+    private void prefixCB(int instruction) throws InstructionNotImplementedException, InvalidMemoryReadLocationException, IOException, InvalidMemoryWriteLocationException, InvalidInstructionException {
         switch (instruction) {
+            case 0x00: rotateLeftCarry(b); break;
+            case 0x01: rotateLeftCarry(c); break;
+            case 0x02: rotateLeftCarry(d); break;
+            case 0x03: rotateLeftCarry(e); break;
+            case 0x04: rotateLeftCarry(h); break;
+            case 0x05: rotateLeftCarry(l); break;
+            case 0x06: rotateLeftCarry(memory.read(getAddress(h, l))); break;
+            case 0x07: rotateLeftCarry(a); break;
+            case 0x08: rotateRightCarry(b); break;
+            case 0x09: rotateRightCarry(c); break;
+            case 0x0A: rotateRightCarry(d); break;
+            case 0x0B: rotateRightCarry(e); break;
+            case 0x0C: rotateRightCarry(h); break;
+            case 0x0D: rotateRightCarry(l); break;
+            case 0x0E: rotateRightCarry(memory.read(getAddress(h, l))); break;
+            case 0x0F: rotateRightCarry(a); break;
 
+            case 0x10: rotateLeft(b); break;
+            case 0x11: rotateLeft(c); break;
+            case 0x12: rotateLeft(d); break;
+            case 0x13: rotateLeft(e); break;
+            case 0x14: rotateLeft(h); break;
+            case 0x15: rotateLeft(l); break;
+            case 0x16: rotateLeft(memory.read(getAddress(h, l))); break;
+            case 0x17: rotateLeft(a); break;
+            case 0x18: rotateRight(b); break;
+            case 0x19: rotateRight(c); break;
+            case 0x1A: rotateRight(d); break;
+            case 0x1B: rotateRight(e); break;
+            case 0x1C: rotateRight(h); break;
+            case 0x1D: rotateRight(l); break;
+            case 0x1E: rotateRight(memory.read(getAddress(h, l))); break;
+            case 0x1F: rotateRight(a); break;
+
+            case 0x20: shiftLeftA(b); break;
+            case 0x21: shiftLeftA(c); break;
+            case 0x22: shiftLeftA(d); break;
+            case 0x23: shiftLeftA(e); break;
+            case 0x24: shiftLeftA(h); break;
+            case 0x25: shiftLeftA(l); break;
+            case 0x26: shiftLeftA(memory.read(getAddress(h, l))); break;
+            case 0x27: shiftLeftA(a); break;
+            case 0x28: shiftRightA(b); break;
+            case 0x29: shiftRightA(c); break;
+            case 0x2A: shiftRightA(d); break;
+            case 0x2B: shiftRightA(e); break;
+            case 0x2C: shiftRightA(h); break;
+            case 0x2D: shiftRightA(l); break;
+            case 0x2E: shiftRightA(memory.read(getAddress(h, l))); break;
+            case 0x2F: shiftRightA(a); break;
+
+            case 0x30: swap(b); break;
+            case 0x31: swap(c); break;
+            case 0x32: swap(d); break;
+            case 0x33: swap(e); break;
+            case 0x34: swap(h); break;
+            case 0x35: swap(l); break;
+            case 0x36: swap(memory.read(getAddress(h, l))); break;
+            case 0x37: swap(a); break;
+            case 0x38: shiftRightL(b); break;
+            case 0x39: shiftRightL(c); break;
+            case 0x3A: shiftRightL(d); break;
+            case 0x3B: shiftRightL(e); break;
+            case 0x3C: shiftRightL(h); break;
+            case 0x3D: shiftRightL(l); break;
+            case 0x3E: shiftRightL(memory.read(getAddress(h, l))); break;
+            case 0x3F: shiftRightL(a); break;
 
             case 0x40: bit(0, b); break;
             case 0x41: bit(0, c); break;
@@ -640,8 +736,211 @@ public class CPU {
             case 0xFE: set(7, getAddress(h, l)); break;
             case 0xFF: set(7, a); break;
 
-            default: throw new InstructionNotImplementedException(String.format("CB %02X", instruction));
+            default: throw new InvalidInstructionException(String.format("CB %02X", instruction));
         }
+    }
+
+    private void rotateLeftCarry(char addr) throws InvalidMemoryReadLocationException, IOException, InvalidMemoryWriteLocationException {
+        int value = memory.read(addr);
+        int r = value / 128;
+        value <<= 1;
+        value |= r;
+
+        value %= 256;
+
+        memory.write(addr, (char) value);
+
+        f.set(r == 1, 4);
+        f.set(value == 0, 7);
+        f.set(false, 6);
+        f.set(false, 5);
+        time += 8;
+    }
+
+    private void rotateLeftCarry(Register8 a) {
+        f.set(a.rotateLeft(true), 4);
+        f.set(a.value == 0, 7);
+        f.set(false, 6);
+        f.set(false, 5);
+        time += 8;
+    }
+
+    private void rotateRightCarry(char addr) throws InvalidMemoryReadLocationException, IOException, InvalidMemoryWriteLocationException {
+        int value = memory.read(addr);
+
+        int r = value % 2;
+        value <<= 1;
+        value |= r << 7;
+
+        memory.write(addr, (char) value);
+
+        f.set(r == 1, 4);
+        f.set(value == 0, 7);
+        f.set(false, 6);
+        f.set(false, 5);
+        time += 8;
+    }
+
+    private void rotateRightCarry(Register8 a) {
+        f.set(a.rotateRight(true), 4);
+        f.set(a.value == 0, 7);
+        f.set(false, 6);
+        f.set(false, 5);
+        time += 8;
+    }
+
+    private void rotateLeft(char addr) throws InvalidMemoryWriteLocationException, InvalidMemoryReadLocationException, IOException {
+        int value = memory.read(addr);
+
+        int r = value / 128;
+        value <<= 1;
+        if (f.getCarry())
+            value |= 1;
+
+        value %= 256;
+        memory.write(addr, (char) value);
+
+        f.set(value == 0, 7);
+        f.set(false, 6);
+        f.set(false, 5);
+        f.set(r == 1, 4);
+        time += 8;
+    }
+
+    private void rotateLeft(Register8 a) {
+        f.set(a.rotateLeft(false), 4);
+        f.set(a.value == 0, 7);
+        f.set(false, 6);
+        f.set(false, 5);
+        time += 8;
+    }
+
+    private void rotateRight(char addr) throws InvalidMemoryReadLocationException, IOException, InvalidMemoryWriteLocationException {
+        int value = memory.read(addr);
+
+        int r = value % 2;
+        value <<= 1;
+        if (f.getCarry())
+            value |= 1 << 7;
+
+        memory.write(addr, (char) value);
+
+        f.set(r == 1, 4);
+        f.set(value == 0, 7);
+        f.set(false, 6);
+        f.set(false, 5);
+        time += 8;
+    }
+
+    private void rotateRight(Register8 a) {
+        f.set(a.rotateRight(false), 4);
+        f.set(a.value == 0, 7);
+        f.set(false, 6);
+        f.set(false, 5);
+        time += 8;
+    }
+
+    private void shiftLeftA(char addr) throws InvalidMemoryReadLocationException, IOException, InvalidMemoryWriteLocationException {
+        int value = memory.read(addr);
+
+        boolean r = value / 128 == 1;
+        value <<= 1;
+        value &= (0xFF - 1);
+
+        memory.write(addr, (char) value);
+
+        f.set(value == 0, 7);
+        f.set(false, 6);
+        f.set(false, 5);
+        f.set(r, 4);
+
+        time += 8;
+    }
+
+    private void shiftLeftA(Register8 reg) {
+        f.set(reg.value == 0, 7);
+        f.set(false, 6);
+        f.set(false, 5);
+        f.set(reg.shiftLeft(), 4);
+
+        time += 8;
+    }
+
+    private void swap(char addr) throws InvalidMemoryReadLocationException, IOException, InvalidMemoryWriteLocationException {
+        char value = memory.read(addr);
+        int temp = (value & 0x0F) << 4 ;
+        temp += (value & 0xF0) >> 4;
+        value = (char) temp;
+        memory.write(addr, value);
+
+        f.set(value == 0, 7);
+        f.set(false, 6);
+        f.set(false, 5);
+        f.set(false, 4);
+
+        time += 16;
+    }
+
+    private void swap(Register8 reg) {
+        f.set(reg.swap(), 7);
+        f.set(false, 6);
+        f.set(false, 5);
+        f.set(false, 4);
+
+        time += 8;
+    }
+
+    private void shiftRightL(char addr) throws InvalidMemoryReadLocationException, IOException, InvalidMemoryWriteLocationException {
+        f.set(memory.read(addr) / 2 > 0, 7);
+        f.set(false, 6);
+        f.set(false, 5);
+
+        char value = memory.read(addr);
+        boolean r = value % 2 == 1;
+        int b = value / 128;
+        value >>= 1;
+        value |= b << 7;
+
+        memory.write(addr, value);
+
+        f.set(r, 4);
+
+        time += 16;
+    }
+
+    private void shiftRightA(char address) throws InvalidMemoryReadLocationException, IOException, InvalidMemoryWriteLocationException {
+        f.set(memory.read(address) / 2 > 0, 7);
+        f.set(false, 6);
+        f.set(false, 5);
+
+        char value = memory.read(address);
+        boolean r = value % 2 == 1;
+        value >>= 1;
+        value &= (0xFF - (1 << 7));
+
+        memory.write(address, value);
+
+        f.set(r, 4);
+
+        time += 16;
+    }
+
+    private void shiftRightL(Register8 reg) {
+        f.set(reg.value / 2 == 0, 7);
+        f.set(false, 6);
+        f.set(false, 5);
+        f.set(reg.shiftRight(true), 4);
+
+        time += 8;
+    }
+
+    private void shiftRightA(Register8 reg) {
+        f.set(reg.value / 2 == 0, 7);
+        f.set(false, 6);
+        f.set(false, 5);
+        f.set(reg.shiftRight(false), 4);
+
+        time += 8;
     }
 
     private void reset(int i, char addr) throws InvalidMemoryReadLocationException, IOException, InvalidMemoryWriteLocationException {
@@ -778,8 +1077,8 @@ public class CPU {
     private void call(boolean b, char address) throws InvalidMemoryWriteLocationException {
         if (b) {
             pc.increment();
-            pushByteToStack((char) (pc.value & 0xFF));
             pushByteToStack((char) ((pc.value & 0xFF00) >> 8));
+            pushByteToStack((char) (pc.value & 0xFF));
             pc.value = address;
             time += 24;
         } else {
@@ -788,7 +1087,8 @@ public class CPU {
     }
 
     private void returnInterrupt() throws InvalidMemoryReadLocationException, IOException {
-        pc.value = getAddress(popByteFromStack(), popByteFromStack());
+        char low = popByteFromStack();
+        pc.value = getAddress(popByteFromStack(), low);
 
         interruptsEnabled = true;
 
@@ -796,14 +1096,15 @@ public class CPU {
     }
 
     private void absoluteReturn() throws InvalidMemoryReadLocationException, IOException {
-        pc.value = getAddress(popByteFromStack(), popByteFromStack());
+        char low = popByteFromStack();
+        pc.value = getAddress(popByteFromStack(), low);
 
         time += 16;
     }
 
     private void restart(int i) throws InvalidMemoryWriteLocationException {
-        pushByteToStack((char) (pc.value & 0xFF));
         pushByteToStack((char) ((pc.value & 0xFF00) >> 8));
+        pushByteToStack((char) (pc.value & 0xFF));
 
         pc.value = (char) i;
 
@@ -811,22 +1112,23 @@ public class CPU {
     }
 
     private void push(char word) throws InvalidMemoryWriteLocationException {
-        pushByteToStack((char) (word & 0xFF));
         pushByteToStack((char) ((word & 0xFF00) >> 8));
+        pushByteToStack((char) (word & 0xFF));
 
         time += 16;
     }
 
     private void pop(Register8 top, Register8 bottom) throws InvalidMemoryReadLocationException, IOException {
-        top.value = popByteFromStack();
         bottom.value = popByteFromStack();
+        top.value = popByteFromStack();
 
         time += 12;
     }
 
     private void ret(boolean b) throws InvalidMemoryReadLocationException, IOException {
         if (b) {
-            pc.value = getAddress(popByteFromStack(), popByteFromStack());
+            char low = popByteFromStack();
+            pc.value = getAddress(popByteFromStack(), low);
 
             time += 20;
         } else {
@@ -949,16 +1251,46 @@ public class CPU {
         f.set(false, 4);
     }
 
-    private void sbcOp8(char h) {
-        //TODO
+    private void sbcOp8(char b) {
+        //check
+
+        int r = a.value - (b + (f.getCarry()?1:0));
+        f.set(r < 0, 4);
+
+        f.set((a.value & 0x0F) - ((b + (f.getCarry()?1:0)) & 0x0F) < 0, 5);
+
+        f.set(true, 6);
+
+        a.value = (char) ((r + 256) % 256);
+        f.set(a.value == 0, 7);
     }
 
     private void subOp8(char b) {
-        //TODO
+        //check
+
+        int r = a.value - b;
+        f.set(r < 0, 4);
+
+        f.set((a.value & 0x0F) - (b & 0x0F) < 0, 5);
+
+        f.set(true, 6);
+
+        a.value = (char) ((r + 256) % 256);
+        f.set(a.value == 0, 7);
     }
 
     private void adcOp8(char b) {
-        //TODO
+        //check
+
+        char r = (char) (a.value + b + (f.getCarry()?1:0));
+        f.set(r > 255, 4);
+
+        f.set((a.value & 0x0F) + (b & 0x0F) > 0x0F, 5);
+
+        f.set(false, 6);
+
+        a.value = (char) (r % 256);
+        f.set(a.value == 0, 7);
     }
 
     private void addOp8(char b) {
@@ -1110,7 +1442,6 @@ public class CPU {
 
     private void stop() {
         //TODO what does this do?
-
         time += 4;
     }
 

@@ -1,14 +1,15 @@
 import java.io.IOException;
 
 public class Memory {
-    char[] work, video;
+    char[] work;
     Cartridge cart;
     private char[] fast;
     private char[] rom; //initializing rom
+    Video video;
 
     public Memory(Cartridge cart) {
         work = new char[8096];
-        video = new char[8096];
+        video = new Video(cart.getName());
         fast = new char[128];
         rom = new char[]{
                 0x31,0xfe,0xff,0xaf,0x21,0xff,0x9f,0x32,
@@ -57,16 +58,16 @@ public class Memory {
         } else if(address < 0x8000) {
             return cart.read(address);
         } else if (address < 0xA000) {
-            return video[address - 0x8000]; //check
+            return video.video[address - 0x8000]; //check
         } else if (address < 0xC000) {
-            return cart.readRam(address - 0xA000); //TODO
+            return cart.readRam(address - 0xA000); //check
         } else if (address < 0xE000) {
-            return work[address - 0xC000]; //TODO check
+            return work[address - 0xC000]; //check
         } else if (address < 0xFE00) {
-            return work[address - 0xE00]; //TODO check
+            return work[address - 0xE00]; //check
         } else if (address < 0xFEA0) {
             //Sprite attrib memory (OAM)
-            return 1; //TODO
+            return video.oam[address - 0xFE00]; //TODO
         } else if (address < 0xFF00) {
 
             return 1; //TODO probably fail is needed
@@ -74,9 +75,9 @@ public class Memory {
         } else if (address < 0xFF80) {
             return 1; //TODO
         } else if (address < 0xFFFF) {
-            return fast[address - 0xFF80]; //TODO
+            return fast[address - 0xFF80]; //check
         } else if (address == 0xFFFF){
-            return 1; //TODO
+            return 1; //TODO interrupt flag
         }
 
         throw new InvalidMemoryReadLocationException();
@@ -96,7 +97,7 @@ public class Memory {
             //TODO
             //return cart.read(address);
         } else if (address <= 0x9FFF) {
-            video[address - 0x8000] = value;
+            video.video[address - 0x8000] = value;
         } else if (address <= 0xBFFF) {
             cart.writeRam(address - 0xA000, value); // check
         } else if (address <= 0xDFFF) {
@@ -104,7 +105,7 @@ public class Memory {
         } else if (address <= 0xFDFF) {
             work[address - 0xE000] = value; //check
         } else if (address <= 0xFE9F) {
-            //TODO
+            video.oam[address - 0xFE00] = value;
         } else if (address <= 0xFEFF) {
 
             //TODO probably fail is needed
@@ -114,9 +115,9 @@ public class Memory {
         } else if (address <= 0xFFFE) {
             fast[address - 0xFF80] = value; //check
         } else if (address == 0xFFFF){
-            //TODO
+            //TODO interrupt flag
         } else {
-            throw new InvalidMemoryWriteLocationException(String.format("%04X", address));
+            throw new InvalidMemoryWriteLocationException(String.format("%08X", address));
         }
     }
 
