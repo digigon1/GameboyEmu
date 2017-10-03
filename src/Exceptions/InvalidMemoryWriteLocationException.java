@@ -1,3 +1,4 @@
+package Exceptions;
 
 public class InvalidMemoryWriteLocationException extends Exception {
     public InvalidMemoryWriteLocationException(String s) {

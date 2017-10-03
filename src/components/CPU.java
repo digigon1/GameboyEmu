@@ -1,3 +1,10 @@
+package components;
+
+import Exceptions.InstructionNotImplementedException;
+import Exceptions.InvalidInstructionException;
+import Exceptions.InvalidMemoryReadLocationException;
+import Exceptions.InvalidMemoryWriteLocationException;
+
 import java.io.IOException;
 
 
@@ -1308,7 +1315,7 @@ public class CPU {
     }
 
     private void halt() {
-        //TODO power down CPU until an interrupt occurs
+        //TODO power down components.CPU until an interrupt occurs
 
         time += 4;
     }

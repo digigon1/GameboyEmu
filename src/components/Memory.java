@@ -1,3 +1,8 @@
+package components;
+
+import Exceptions.InvalidMemoryReadLocationException;
+import Exceptions.InvalidMemoryWriteLocationException;
+
 import java.io.IOException;
 
 public class Memory {
@@ -73,6 +78,10 @@ public class Memory {
             return 1; //TODO probably fail is needed
 
         } else if (address < 0xFF80) {
+            if (address == 0xFF40) {
+                //LCD control
+                return video.lcdc;
+            }
             return 1; //TODO
         } else if (address < 0xFFFF) {
             return fast[address - 0xFF80]; //check
@@ -112,6 +121,10 @@ public class Memory {
 
         } else if (address <= 0xFF7F) {
             //TODO
+            if (address == 0xFF40) {
+                //LCD control
+                video.lcdc = value;
+            }
         } else if (address <= 0xFFFE) {
             fast[address - 0xFF80] = value; //check
         } else if (address == 0xFFFF){

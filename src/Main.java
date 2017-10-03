@@ -1,3 +1,6 @@
+import components.CPU;
+import components.Cartridge;
+import components.Memory;
 
 public class Main {
     public static void main(String[] args) {
